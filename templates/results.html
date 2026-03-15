@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ ticker }} Analysis | Trading Dashboard</title>
+    <!--{{ url_for('static', filename='favicon.ico') }}-->
+    <link rel="icon" href="./static/favicon-32x32.png" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/static/css/styles.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-chart-line me-2"></i>AI-Driven Intraday Trading Dashboard
+            </a>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Stock Header -->
+        <div class="row mb-4 fade-in">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                            <div class="mb-3 mb-md-0">
+                                <div class="d-flex align-items-center">
+                                    <h2 class="mb-0 me-3">{{ ticker }}</h2>
+                                    <span class="badge bg-{{ 'success' if 'BUY' in analysis.recommendation else 'danger' if 'SELL' in analysis.recommendation else 'warning' }}">
+                                        {{ analysis.recommendation }}
+                                    </span>
+                                </div>
+                                <p class="mb-0 text-muted mt-1">
+                                    {{ analysis.fundamentals["sector"] }} | {{ analysis.fundamentals["industry"] }}
+                                </p>
+                            </div>
+                            {% if prediction %}
+                            <div class="prediction-container mt-2">
+                                <span class="prediction-label">Predicted: </span>
+                                <span class="predicted-price {% if prediction > analysis.current_price %}text-success{% else %}text-danger{% endif %}">
+                                    ₹{{ prediction|round(2) }}
+                                </span>
+                                <span class="prediction-difference badge bg-{% if prediction > analysis.current_price %}success{% else %}danger{% endif %}">
+                                    {% set difference = (((prediction - analysis.current_price) / analysis.current_price) * 100) %}
+                                    {{ difference|abs|round(2) }}%
+                                    <i class="fas fa-arrow-{% if prediction > analysis.current_price %}up{% else %}down{% endif %} ms-1"></i>
+                                </span>
+                            </div>
+                            {% endif %}
+                            <div class="text-center text-md-end">
+                                <small class="text-muted">Last Closing Price: {{ analysis.last_updated }}</small>
+                                <h4 class="mb-0 stock-price">₹{{ analysis.current_price }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="row">
+            <!-- Left Column -->
+            <div class="col-lg-8">
+                <!-- Technical Analysis -->
+                <div class="card mb-4 fade-in" style="animation-delay: 0.1s">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Technical Analysis</h4>
+                        <div class="badge bg-primary">Live</div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="chart-container p-3">
+                            {{ analysis.plot_html|safe }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D Visualization -->
+                <div class="card mb-4 fade-in" style="animation-delay: 0.2s">
+                    <div class="card-header">
+                        <h4 class="mb-0">3D Price Movement Analysis</h4>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="chart-container" style="height: 500px;">
+                            {{ analysis.plot_3d|safe }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-lg-4">
+                <!-- Trading Recommendation -->
+                <div class="card mb-4 fade-in" style="animation-delay: 0.3s">
+                    <div class="card-header bg-{{ 'success' if 'BUY' in analysis.recommendation else 'danger' if 'SELL' in analysis.recommendation else 'warning' }}">
+                        <h4 class="mb-0">
+                            <i class="fas fa-robot me-2"></i>AI-Driven Intraday Trading Recommendation
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-header bg-{{ 'success' if 'BUY' in analysis.recommendation else 'danger' if 'SELL' in analysis.recommendation else 'warning' }} mb-4">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h3 class="mb-0">{{ analysis.recommendation }}</h3>
+                                <div class="confidence-badge">
+                                    <span class="fw-bold">{{ analysis.confidence_score }}%</span>
+                                    <small class="d-block">Confidence</small>
+                                </div>
+                            </div>
+                            <div class="confidence-meter mt-2">
+                                <div class="confidence-fill" style="width: {{ analysis.confidence_score }}%"></div>
+                            </div>
+                        </div>
+                        <h5 class="mb-3">Key Factors:</h5>
+                        <ul class="list-group">
+                            {% for reason in analysis.reasons %}
+                            <li class="list-group-item d-flex align-items-start">
+                                <i class="fas fa-circle text-primary mt-1 me-2" style="font-size: 0.5rem;"></i>
+                                <span>{{ reason }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Accuracy Tracking -->
+                <div class="card mb-4 fade-in accuracy-card" style="animation-delay: 0.4s">
+                    <div class="card-header accuracy-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0">
+                                <i class="fas fa-bullseye me-2"></i>Prediction Performance (Last 7-Days)
+                            </h4>
+                            <span class="badge accuracy-badge bg-{% if analysis.accuracy.avg_accuracy > 75 %}success
+                                                            {% elif analysis.accuracy.avg_accuracy > 50 %}warning
+                                                            {% else %}danger{% endif %}">
+                                Avg: {{ analysis.accuracy.avg_accuracy }}%
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table accuracy-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Actual</th>
+                                        <th>Predicted</th>
+                                        <th>Accuracy</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for i in range(7) %}
+                                    <tr>
+                                        <td>{{ analysis.accuracy.dates[i] }}</td>
+                                        <td>₹{{ analysis.accuracy.actual[i] }}</td>
+                                        <td>₹{{ analysis.accuracy.predicted[i]|round(2) }}</td>
+                                        <td style="background: rgba(
+                                            {% if analysis.accuracy.accuracy[i] > 75 %}16, 201, 129
+                                            {% elif analysis.accuracy.accuracy[i] > 50 %}245, 158, 11
+                                            {% else %}239, 68, 68{% endif %}, 0.15)">
+                                            {{ analysis.accuracy.accuracy[i] }}%
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="accuracy-chart-container">
+                            <div class="accuracy-chart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fundamentals -->
+                <div class="card mb-4 fade-in" style="animation-delay: 0.4s">
+                    <div class="card-header">
+                        <h4 class="mb-0">
+                            <i class="fas fa-building me-2"></i>Company Fundamentals
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <h6>Market Cap</h6>
+                                    <p>₹{{ "{:,.2f} Cr".format(analysis.fundamentals["marketCap"] / 10000000) if analysis.fundamentals["marketCap"] else 'N/A' }}</p>
+                                </div>
+                                <div class="metric-card">
+                                    <h6>P/E Ratio</h6>
+                                    <p>{{ analysis.fundamentals["peRatio"]|round(2) if analysis.fundamentals["peRatio"] else 'N/A' }}</p>
+                                </div>
+                                <div class="metric-card">
+                                    <h6>52-Week Range</h6>
+                                    <p>
+                                        {% if analysis.fundamentals["52WeekLow"] and analysis.fundamentals["52WeekHigh"] %}
+                                        ₹{{ analysis.fundamentals["52WeekLow"]|round(2) }} - ₹{{ analysis.fundamentals["52WeekHigh"]|round(2) }}
+                                        {% else %}
+                                        N/A
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card">
+                                    <h6>Dividend Yield</h6>
+                                    <p>{{ (analysis.fundamentals["dividendYield"])|round(2) if analysis.fundamentals["dividendYield"] else 'N/A' }}%</p>
+                                </div>
+                                <div class="metric-card">
+                                    <h6>Beta</h6>
+                                    <p>{{ analysis.fundamentals["beta"]|round(2) if analysis.fundamentals["beta"] else 'N/A' }}</p>
+                                </div>
+                                <div class="metric-card">
+                                    <h6>Avg Volume</h6>
+                                    <p>{{ "{:,.0f}".format(analysis.fundamentals["avgVolume"]) if analysis.fundamentals["avgVolume"] else 'N/A' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% if analysis.fundamentals["website"] %}
+                        <a href="{{ analysis.fundamentals["website"] }}" target="_blank" class="btn btn-outline-primary w-100 mt-3">
+                            <i class="fas fa-external-link-alt me-2"></i>Company Website
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Key Metrics -->
+                <div class="card fade-in" style="animation-delay: 0.5s">
+                    <div class="card-header">
+                        <h4 class="mb-0">
+                            <i class="fas fa-tachometer-alt me-2"></i>Market Metrics
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="metric-card mb-3">
+                                    <h6>RSI (14)</h6>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1 me-2">
+                                            <div class="progress-bar bg-{{ 'danger' if analysis.current_rsi > 70 else 'success' if analysis.current_rsi < 30 else 'info' }}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ analysis.current_rsi }}%"
+                                                 aria-valuenow="{{ analysis.current_rsi }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        <span class="rsi-value">{{ analysis.current_rsi }}</span>
+                                    </div>
+                                </div>
+                                <div class="metric-card mb-3">
+                                    <h6>Volatility</h6>
+                                    <p>{{ analysis.volatility }}%</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="metric-card mb-3">
+                                    <h6>ATR (14)</h6>
+                                    <p>{{ analysis.atr }}</p>
+                                </div>
+                                <div class="metric-card mb-3">
+                                    <h6>Volume Trend</h6>
+                                    <span class="badge bg-{{ 'success' if analysis.obv_trend == 'Bullish' else 'danger' }}">
+                                        {{ analysis.obv_trend }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="metric-card mb-3">
+                                <h6>Risk Score: {{ analysis.risk_score }}/10</h6>
+                                <div class="risk-meter mt-2">
+                                    <div class="risk-level" style="width: {{ analysis.risk_score * 10 }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Back Button -->
+        <div class="text-center mt-4 fade-in" style="animation-delay: 0.6s">
+            <a href="/" class="btn btn-primary btn-lg px-4">
+                <i class="fas fa-arrow-left me-2"></i>Analyze Another Stock
+            </a>
+        </div>
+    </div>
+
+    <footer class="py-4 mt-4">
+        <div class="container text-center">
+            <p class="mb-0 text-muted"> AI-Driven Intraday Trading Analysis</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
